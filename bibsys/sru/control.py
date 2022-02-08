@@ -14,14 +14,14 @@ api_version = '1.2'
 
 # main 
 class SRU():
-    def __init__(self, r, zone="", sru_path="", printOut=""):
+    def __init__(self, r, zone="", sru_path="", printOut=False):
         self.zone = zone
         self.r = r
         self.xml = r.text or ""
         self.dict = xmltodict.parse(self.xml, dict_constructor=dict)
         self.list = []
         self.printOut = printOut
-        print(self.printOut)
+
         # get number of records, check for errors
         try:
             self.numberOfRecords = int(self.dict['srw:searchRetrieveResponse']['srw:numberOfRecords'])
@@ -34,12 +34,16 @@ class SRU():
             print(f"{e}\n{self.xml}")
 
         if self.numberOfRecords > 0:
-            for val in self.dict['srw:searchRetrieveResponse']['srw:records']['srw:record']:
-                ident = checkPerson(val['srw:recordIdentifier'])
-                if ident != -1:
-                    self.list.append(get_authorities(ident))
-                
-        if self.list and self.printOut == "yes":
+            if not isinstance(self.dict['srw:searchRetrieveResponse']['srw:records']['srw:record'], list):
+                self.list.append(get_authorities(checkPerson(self.dict['srw:searchRetrieveResponse']['srw:records']['srw:record']['srw:recordIdentifier'])))
+            else:    
+                for val in self.dict['srw:searchRetrieveResponse']['srw:records']['srw:record']:
+                    ident = checkPerson(val['srw:recordIdentifier'])
+                    
+                    if ident != -1:
+                        self.list.append(get_authorities(ident))
+        
+        if self.list and self.printOut:
             for ent in self.list:
                 printText(ent)
             
@@ -53,8 +57,8 @@ def make_url(zone="", query="", operation="searchRetrieve",
     url = f"{sru_path}?version={api_version}&operation={operation}&recordSchema={recordSchema}&maximumRecords={maximumRecords}&startRecord={startRecord}&query={query}&recordPacking={packing}"
     return url
 
-def parse(r, zone="", printOut=""):
-    sru_object = SRU(r, zone, printOut)
+def parse(r, zone="", printOut=False):
+    sru_object = SRU(r, zone, printOut=printOut)
     return sru_object
 
 def checkPerson(auth, zone='bibauth', packing='json'):
